@@ -1,53 +1,49 @@
 # Employee Attendance & Analytics API
 
-A FastAPI and MongoDB backend service implementing employee attendance tracking (punch-in, punch-out, regularization audit trails) and real-time analytics aggregation pipelines compliant with strict business rules (R1–R10).
+FastAPI + MongoDB backend for employee attendance tracking and analytics. Handles punch events, shift calculations (including overnight shifts), manual regularizations with audit history, and aggregation-based reporting.
 
-## Requirements
-* Python 3.11+
-* MongoDB 6.0+ (Tested on MongoDB 7.0)
+## Setup & Running
 
-## Quick Start
-
-1. **Install dependencies:**
+1. **Install requirements:**
    ```bash
    pip install -r requirements.txt
    ```
 
-2. **Configure environment:**
-   Set environment variables or use a local `.env`:
+2. **Database configuration:**
+   By default it connects to `mongodb://localhost:27017` on database `attendance_db`. You can override these using environment variables:
    ```bash
    MONGO_URI="mongodb://localhost:27017"
    MONGO_DB="attendance_db"
    ```
 
-3. **Seed initial sample data (optional):**
+3. **Seed sample data (optional):**
    ```bash
    python sample_seed.py
    ```
 
-4. **Run the API server:**
+4. **Start the API:**
    ```bash
    uvicorn app.main:app --port 8000
    ```
-   The service automatically initializes all unique and performance-critical indexes on startup.
+   All required unique and query indexes are automatically created at startup on MongoDB.
 
-## Core Features & Endpoints
-* **Health Check**: `GET /health` (probes MongoDB responsiveness, returns 200 or 503).
-* **Employee Management**: `POST /employees`, `GET /employees` (with unique `emp_code` enforcement and paginated sorting).
-* **Attendance Punch Events**:
-  * `POST /attendance/punch-in`: Race-safe punch-in with R1 IST/overnight shift handling and R2 late calculation.
-  * `POST /attendance/punch-out`: Race-safe punch-out computing R4 work hours, R3 overtime ($\ge$ 30 min), and R5 half-day.
-  * `GET /attendance`: High-performance indexed pagination with date range filtering.
-  * `PATCH /attendance/{emp_code}/{date}`: Manual regularizations with optimistic locking and complete history audit trail.
-* **Analytics Aggregations**:
-  * `GET /analytics/employees/{emp_code}/monthly`: Monthly stats accounting for mid-month joiners (R7).
-  * `GET /analytics/departments/summary`: Department-level summary counting zero-log employees (R9).
-  * `GET /analytics/leaderboard/late`: Dense competition ranking (1, 2, 2, 4) with post-ranking limits.
-  * `GET /analytics/departments/{department}/trend`: Gap-filled calendar daily series (`$densify`) with 7-day moving averages.
-* **Query Verification**: `GET /admin/explain/{endpoint}` providing raw execution stats proving `IXSCAN` usage.
+## Endpoints
 
-## Deliverables
-* [`app/main.py`](app/main.py): Self-contained application code.
-* [`requirements.txt`](requirements.txt): Pinned dependencies.
-* [`REVIEW.md`](REVIEW.md): Code review audit of starter defects.
-* [`DECISIONS.md`](DECISIONS.md): Architectural decisions and index strategy.
+* `GET /health`: Readiness probe checking MongoDB connection.
+* `POST /employees`: Create employee (validates format, enforces unique `emp_code`).
+* `GET /employees`: Paginated employee list sorted by `emp_code`.
+* `POST /attendance/punch-in`: Record punch-in (handles overnight shifts and calculates late minutes).
+* `POST /attendance/punch-out`: Close open punch-in (calculates work hours, overtime, and half-day status).
+* `GET /attendance`: Paginated attendance history with date and employee filters.
+* `PATCH /attendance/{emp_code}/{date}`: Manual correction endpoint; updates derived metrics and appends an audit record to `history`.
+* `GET /analytics/employees/{emp_code}/monthly`: Monthly stats for an employee.
+* `GET /analytics/departments/summary`: Department totals including zero-log employees.
+* `GET /analytics/leaderboard/late`: Late arrivals leaderboard using competition ranking (`$rank`).
+* `GET /analytics/departments/{department}/trend`: Calendar-gap-filled trend line using `$densify` with 7-day moving average.
+* `GET /admin/explain/{endpoint}`: Returns raw MongoDB explain plan confirming `IXSCAN` usage.
+
+## Files
+* `app/main.py`: Complete API application.
+* `REVIEW.md`: Audit of defects found in the starter code.
+* `DECISIONS.md`: Design and architecture decisions.
+* `requirements.txt`: Python package dependencies.
